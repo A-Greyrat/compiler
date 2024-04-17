@@ -1,10 +1,8 @@
 {
     int a;
-    a = 1;
+    int b;
+    a = (1 + 4) * 2;
+    b = 2;
 
-    if (a == 1) {
-        a = 2;
-    } else {
-        a = 3;
-    }
+    print(a + b);
 }

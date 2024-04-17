@@ -11,6 +11,7 @@ interface LR1Item {
 interface LR1StackItem {
     state: number;
     symbol: string;
+    value?: string;
 }
 
 type ActionEntry = { type?: 'SHIFT' | 'REDUCE' | 'ACCEPT' | 'ERROR', nextState?: number, productionNumber?: number };
@@ -152,16 +153,14 @@ export const generateActionGotoTables = (states: LR1Item[][], grammar: Rule[]): 
     return {actionTable, gotoTable};
 }
 
-export class ASTNode {
-    constructor(public value: string, public children: ASTNode[] = []) {
+export class SyntaxTreeNode {
+    constructor(public type: string, public value: string, public children: SyntaxTreeNode[] = []) {
     }
-
 }
 
-export class AST {
-    constructor(public root: ASTNode) {
+export class SyntaxTree {
+    constructor(public root: SyntaxTreeNode) {
     }
-
 }
 
 
@@ -173,8 +172,8 @@ export class LR1Parser {
     private stateStack: number[] = [];
     private readonly grammar: Rule[];
 
-    private astNodeStack: ASTNode[] = [];
-    private ast?: AST;
+    private nodeStack: SyntaxTreeNode[] = [];
+    private syntaxTree?: SyntaxTree;
 
     private traceTable: {
         stack: string,
@@ -189,9 +188,9 @@ export class LR1Parser {
         this.gotoTable = gotoTable;
     }
 
-    private shift(state: number, symbol: string) {
+    private shift(state: number, symbol: string, value?: string) {
         this.stateStack.push(state);
-        this.stack.push({state, symbol});
+        this.stack.push({state, symbol, value});
 
         this.traceTable.push({
             stack: this.stateStack.join(' '),
@@ -220,19 +219,21 @@ export class LR1Parser {
             action: `Reduce ${rule.lhs} → ${rule.rhs.join(' ')}`
         });
 
-        const children: ASTNode[] = [];
+        const children: SyntaxTreeNode[] = [];
         for (let i = rule.rhs.length - 1; i >= 0; i--) {
             if (isNonTerminal(rule.rhs[i])) {
-                if (this.astNodeStack.at(-1)?.value === rule.rhs[i]) {
-                    const child = this.astNodeStack.pop();
+                if (this.nodeStack.at(-1)?.type === rule.rhs[i]) {
+                    const child = this.nodeStack.pop();
                     child && children.push(child);
                 }
             } else {
-                children.push(new ASTNode(rule.rhs[i]));
+                children.push(new SyntaxTreeNode(rule.rhs[i], poppedSymbols[rule.rhs.length - 1 - i]?.value || rule.rhs[i]));
             }
         }
-        this.astNodeStack.push(new ASTNode(rule.lhs, children.reverse()));
+
+        this.nodeStack.push(new SyntaxTreeNode(rule.lhs, rule.lhs, children.reverse()));
     }
+
 
     private getSymbolFromToken(token: Token): string {
         switch (token.type) {
@@ -271,7 +272,7 @@ export class LR1Parser {
             }
             switch (action.type) {
                 case 'SHIFT':
-                    this.shift(action.nextState!!, this.getSymbolFromToken(token));
+                    this.shift(action.nextState!!, this.getSymbolFromToken(token), token.value);
                     tokenIndex++;
                     break;
                 case 'REDUCE':
@@ -284,7 +285,7 @@ export class LR1Parser {
                         input: token.value,
                         action: `Accept`
                     });
-                    this.ast = new AST(this.astNodeStack[0]);
+                    this.syntaxTree = new SyntaxTree(this.nodeStack[0]);
                     return;
                 case 'ERROR':
                     throw new Error(`Unexpected token ${token.value} at line ${token.line}, column ${token.column}`);
@@ -298,10 +299,10 @@ export class LR1Parser {
         console.table(this.traceTable);
     }
 
-    public getAST(): AST {
-        if (!this.ast) {
+    public getSyntaxTree(): SyntaxTree {
+        if (!this.syntaxTree) {
             throw new Error("AST not generated");
         }
-        return this.ast;
+        return this.syntaxTree;
     }
 }
