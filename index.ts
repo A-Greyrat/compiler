@@ -33,5 +33,3 @@ const logAST = (node: SyntaxTreeNode, depth = 0, left = "", right = "└── "
 }
 
 logAST(ast.root);
-
-;
