@@ -14,14 +14,14 @@ parser.parse(tokens);
 
 const ast = parser.getSyntaxTree();
 
-const logAST = (node: SyntaxTreeNode, depth = 0, left = "", right = "└── ") => {
+const logAST = (node: SyntaxTreeNode, depth = 0, left = "", right = "") => {
     if (node.type === node.value) {
         console.log(left + right + '[' + node.type + '] ');
     } else {
         console.log(left + right + '[' + node.type + ': ' + node.value + '] ');
     }
 
-    left += right === "└── " ? "    " : "│   ";
+    left += (right === "└── " || right === "") ? "    " : "│   ";
 
     for (let i = 0; i < node.children.length; i++) {
         if (i === node.children.length - 1) {
