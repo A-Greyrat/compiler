@@ -261,15 +261,12 @@ export class LR1Parser {
         while (tokenIndex < this.tokenStream.length) {
             const token = this.tokenStream[tokenIndex];
             const currentState = this.stateStack[this.stateStack.length - 1];
-            const action = this.actionTable[currentState][this.getSymbolFromToken(token)];
+            const action = this.actionTable[currentState][this.getSymbolFromToken(token)] ?? this.actionTable[currentState]['$'];
 
             if (!action) {
-                if (this.actionTable[currentState]?.['$']?.type === 'REDUCE') {
-                    this.reduce(this.grammar[this.actionTable[currentState]['$'].productionNumber!!]);
-                    continue;
-                }
                 throw new Error(`Unexpected token ${token.value} at line ${token.line}, column ${token.column}`);
             }
+
             switch (action.type) {
                 case 'SHIFT':
                     this.shift(action.nextState!!, this.getSymbolFromToken(token), token.value);

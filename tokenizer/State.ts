@@ -135,7 +135,11 @@ export class NumberState implements State {
     }
 
     getNextState(): State {
-        while (!this.lexer.isAtEnd() && this.lexer.isDigit(this.lexer.peek())) {
+        let isReal = false;
+        while (!this.lexer.isAtEnd() && (this.lexer.isDigit(this.lexer.peek()) || (!isReal && this.lexer.peek() === '.'))) {
+            if (this.lexer.peek() === '.') {
+                isReal = true;
+            }
             this.value += this.lexer.advance();
         }
 
