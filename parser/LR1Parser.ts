@@ -1,5 +1,5 @@
-import {grammar, isNonTerminal, isTerminal, Rule} from './Grammar';
-import {Token} from "../tokenizer";
+import { grammar, isNonTerminal, isTerminal, Rule } from './Grammar';
+import { Token } from "../tokenizer";
 
 interface LR1Item {
     ruleIndex: number;
@@ -29,12 +29,15 @@ const closure = (items: LR1Item[], grammar: Rule[]): LR1Item[] => {
             const rule = grammar[item.ruleIndex];
             if (item.dot < rule.rhs.length && isNonTerminal(rule.rhs[item.dot])) {
                 const nonTerminal = rule.rhs[item.dot];
+                const lookaheadSet = lookahead(item, grammar);
                 for (let j = 0; j < grammar.length; j++) {
                     if (grammar[j].lhs === nonTerminal) {
-                        const newItem = {ruleIndex: j, dot: 0, lookahead: item.lookahead};
-                        if (!closureItems.some((item) => item.ruleIndex === newItem.ruleIndex && item.dot === newItem.dot && item.lookahead === newItem.lookahead)) {
-                            closureItems.push(newItem);
-                            changed = true;
+                        for (const lookahead of lookaheadSet) {
+                            const newItem = { ruleIndex: j, dot: 0, lookahead };
+                            if (!closureItems.some((item) => item.ruleIndex === newItem.ruleIndex && item.dot === newItem.dot && item.lookahead === newItem.lookahead)) {
+                                closureItems.push(newItem);
+                                changed = true;
+                            }
                         }
                     }
                 }
@@ -51,7 +54,7 @@ const goto = (items: LR1Item[], symbol: string, grammar: Rule[]): LR1Item[] => {
         const item = items[i];
         const rule = grammar[item.ruleIndex];
         if (item.dot < rule.rhs.length && rule.rhs[item.dot] === symbol) {
-            gotoItems.push({ruleIndex: item.ruleIndex, dot: item.dot + 1, lookahead: item.lookahead});
+            gotoItems.push({ ruleIndex: item.ruleIndex, dot: item.dot + 1, lookahead: item.lookahead });
         }
     }
     return closure(gotoItems, grammar);
@@ -69,9 +72,76 @@ const itemsAreEqual = (items1: LR1Item[], items2: LR1Item[]): boolean => {
     return true;
 }
 
+// 求 first 集
+const first = (symbol: string, grammar: Rule[], visited: string[]): Set<string> => {
+    const firstSet = new Set<string>();
+    if (isTerminal(symbol)) {
+        firstSet.add(symbol);
+        return firstSet;
+    }
+
+    for (const rule of grammar) {
+        if (rule.lhs === symbol) {
+            if (rule.rhs.length === 0) {
+                firstSet.add('$');
+            } else {
+                for (const rhsSymbol of rule.rhs) {
+                    if (visited.includes(rhsSymbol)) {
+                        continue;
+                    }
+                    visited.push(rhsSymbol);
+                    const firstRhs = first(rhsSymbol, grammar, visited);
+                    let hasEmpty = false;
+                    for (const firstSymbol of firstRhs) {
+                        firstSet.add(firstSymbol);
+                        if (firstSymbol === '$') {
+                            hasEmpty = true;
+                        }
+                    }
+                    if (!hasEmpty) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return firstSet;
+}
+
+// 求展望符集
+const lookahead = (item: LR1Item, grammar: Rule[]): Set<string> => {
+    const lookaheadSet = new Set<string>();
+    const rule = grammar[item.ruleIndex];
+    if (item.dot === rule.rhs.length) {
+        lookaheadSet.add(item.lookahead);
+        return lookaheadSet;
+    }
+
+    const beta = rule.rhs.slice(item.dot + 1);
+    for (const symbol of beta) {
+        const firstSet = first(symbol, grammar, [symbol]);
+        let hasEmpty = false;
+        for (const firstSymbol of firstSet) {
+            lookaheadSet.add(firstSymbol);
+            if (firstSymbol === '$') {
+                hasEmpty = true;
+            }
+        }
+        if (!hasEmpty) {
+            return lookaheadSet;
+        }
+    }
+
+    lookaheadSet.add(item.lookahead);
+
+    return lookaheadSet;
+}
+
+// 求项目集规范族
 export const generateLR1States = (grammar: Rule[]): LR1Item[][] => {
     const states: LR1Item[][] = [];
-    const startItem = {ruleIndex: 0, dot: 0, lookahead: '$'};
+    const startItem = { ruleIndex: 0, dot: 0, lookahead: '$' };
     const startState = closure([startItem], grammar);
     states.push(startState);
 
@@ -81,6 +151,7 @@ export const generateLR1States = (grammar: Rule[]): LR1Item[][] => {
         for (let i = 0; i < states.length; i++) {
             const state = states[i];
             const symbols = new Set<string>();
+            // 找出所有可能用来进入新状态的符号
             for (let j = 0; j < state.length; j++) {
                 const item = state[j];
                 const rule = grammar[item.ruleIndex];
@@ -93,6 +164,7 @@ export const generateLR1States = (grammar: Rule[]): LR1Item[][] => {
                 if (!nextState.length) {
                     continue;
                 }
+                // 新的集合就 push
                 if (!states.some((state) => itemsAreEqual(state, nextState))) {
                     states.push(nextState);
                     changed = true;
@@ -132,25 +204,33 @@ export const generateActionGotoTables = (states: LR1Item[][], grammar: Rule[]): 
             const rule = grammar[item.ruleIndex];
             if (item.dot === rule.rhs.length) {
                 if (item.ruleIndex === 0) {
-                    actionTable[i]['$'] = {type: 'ACCEPT'};
+                    if (actionTable[i]['$'] && actionTable[i]['$'].type !== 'ACCEPT')
+                        throw new Error(`产生 ${actionTable[i]['$'].type}-ACCEPT 冲突`);
+                    actionTable[i]['$'] = { type: 'ACCEPT' };
                 } else {
-                    for (const lookahead of item.lookahead.split(' ')) {
-                        actionTable[i][lookahead] = {type: 'REDUCE', productionNumber: item.ruleIndex};
-                    }
+                    if (actionTable[i][item.lookahead]
+                        && (actionTable[i][item.lookahead].type !== 'REDUCE'
+                            || actionTable[i][item.lookahead].productionNumber !== item.ruleIndex))
+                        throw new Error(`产生 ${actionTable[i][item.lookahead].type}-REDUCE 冲突, 产生式 ${item.ruleIndex} ${JSON.stringify(grammar[item.ruleIndex])} 与 ${JSON.stringify(actionTable[i][item.lookahead])} 冲突, 表index ${i} ${item.lookahead}`);
+                    actionTable[i][item.lookahead] = { type: 'REDUCE', productionNumber: item.ruleIndex };
                 }
             } else {
                 const symbol = rule.rhs[item.dot];
                 if (isTerminal(symbol)) {
                     const nextState = findTransitionState(states, state, symbol);
-                    actionTable[i][symbol] = {type: 'SHIFT', nextState};
+                    if (actionTable[i][symbol] && actionTable[i][symbol].nextState !== nextState)
+                        throw new Error(`产生 ${actionTable[i][symbol].type}-SHIFT 冲突, 状态 ${JSON.stringify(nextState)} 与 ${JSON.stringify(actionTable[i][symbol])} 冲突, 表index ${i} ${lookahead}`);
+                    actionTable[i][symbol] = { type: 'SHIFT', nextState };
                 } else {
                     gotoTable[i][symbol] = findTransitionState(states, state, symbol);
                 }
             }
+            // 显示处理进度
+            // console.log(i + ' ' + j);
         }
     }
 
-    return {actionTable, gotoTable};
+    return { actionTable, gotoTable };
 }
 
 export class SyntaxTreeNode {
@@ -190,7 +270,7 @@ export class LR1Parser {
 
     private shift(state: number, symbol: string, value?: string) {
         this.stateStack.push(state);
-        this.stack.push({state, symbol, value});
+        this.stack.push({ state, symbol, value });
 
         this.traceTable.push({
             stack: this.stateStack.join(' '),
@@ -205,7 +285,7 @@ export class LR1Parser {
         const poppedSymbols = rule.rhs.map(() => this.stack.pop());
         const nextState = this.stateStack[this.stateStack.length - 1];
         this.stateStack.push(this.gotoTable[nextState][rule.lhs]);
-        this.stack.push({state: this.stateStack[this.stateStack.length - 1], symbol: rule.lhs});
+        this.stack.push({ state: this.stateStack[this.stateStack.length - 1], symbol: rule.lhs });
 
         // 如果是空产生式，不输出
         if (rule.rhs.length === 0) {
@@ -261,7 +341,7 @@ export class LR1Parser {
         while (tokenIndex < this.tokenStream.length) {
             const token = this.tokenStream[tokenIndex];
             const currentState = this.stateStack[this.stateStack.length - 1];
-            const action = this.actionTable[currentState][this.getSymbolFromToken(token)] ?? this.actionTable[currentState]['$'];
+            const action = this.actionTable[currentState][this.getSymbolFromToken(token)];
 
             if (!action) {
                 throw new Error(`Unexpected token ${token.value} at line ${token.line}, column ${token.column}`);

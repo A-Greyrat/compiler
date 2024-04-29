@@ -62,11 +62,12 @@ export const grammar: Rule[] = [
     // {lhs: "stmts", rhs: ["decls"]},
 
     // stmt → loc=bool; | if(bool)stmt | if(bool)stmt else stmt | while(bool)stmt | do stmt while(bool); | break; | block | func | return bool;
+    // change to: stmt → loc=bool; | if(bool)block | if(bool)block else block | while(bool)block | do block while(bool); | break; | block | func | return bool;
     {lhs: "stmt", rhs: ["loc", "=", "bool", ";"]},
-    {lhs: "stmt", rhs: ["if", "(", "bool", ")", "stmt"]},
-    {lhs: "stmt", rhs: ["if", "(", "bool", ")", "stmt", "else", "stmt"]},
-    {lhs: "stmt", rhs: ["while", "(", "bool", ")", "stmt"]},
-    {lhs: "stmt", rhs: ["do", "stmt", "while", "(", "bool", ")", ";"]},
+    {lhs: "stmt", rhs: ["if", "(", "bool", ")", "block"]},
+    {lhs: "stmt", rhs: ["if", "(", "bool", ")", "block", "else", "block"]},
+    {lhs: "stmt", rhs: ["while", "(", "bool", ")", "block"]},
+    {lhs: "stmt", rhs: ["do", "block", "while", "(", "bool", ")", ";"]},
     {lhs: "stmt", rhs: ["break", ";"]},
     {lhs: "stmt", rhs: ["block"]},
     {lhs: "stmt", rhs: ["func"]},
