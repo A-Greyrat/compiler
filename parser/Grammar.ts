@@ -62,6 +62,7 @@ export const grammar: Rule[] = [
     // {lhs: "stmts", rhs: ["decls"]},
 
     // stmt → loc=bool; | if(bool)stmt | if(bool)stmt else stmt | while(bool)stmt | do stmt while(bool); | break; | block | func | return bool;
+    // change to: stmt → loc=bool; | if(bool)block | if(bool)block else block | while(bool)block | do block while(bool); | break; | block | func | return bool;
     {lhs: "stmt", rhs: ["loc", "=", "bool", ";"]},
     {lhs: "stmt", rhs: ["if", "(", "bool", ")", "block"]},
     {lhs: "stmt", rhs: ["if", "(", "bool", ")", "block", "else", "block"]},
