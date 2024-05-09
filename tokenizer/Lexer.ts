@@ -14,8 +14,6 @@ export class Lexer {
     private tokens: Token[] = [];
     private state: State;
 
-    private symbolTable: Set<string> = new Set<string>();
-
     constructor(code: string) {
         this.sourceCode = code;
         this.currentIndex = 0;
@@ -49,17 +47,9 @@ export class Lexer {
             return;
         }
 
-        if (type === TokenType.IDENTIFIER) {
-            this.symbolTable.add(value);
-        }
-
         this.tokens.push(new Token(type, value, this.lastLine, this.lastColumn));
         this.lastLine = this.currentLine;
         this.lastColumn = this.currentColumn;
-    }
-
-    public getSymbolTable(): Set<string> {
-        return this.symbolTable;
     }
 
     public isAtEnd() {
