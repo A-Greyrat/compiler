@@ -62,8 +62,17 @@ export class VirtualMachine {
         this.pc = 0;
     }
 
-    private getSymbol(identifier: string) {
+    private getSymbol(identifier: string, isLeft: boolean = false) {
         if (identifier.startsWith('T ')) {
+            if (!isLeft) {
+                const t = this.stack.pop();
+                if (t instanceof ArrayItem) {
+                    return t.value;
+                } else {
+                    return t;
+                }
+            }
+
             return this.stack.pop();
         } else if (identifier.startsWith('C ')) {
             const c = identifier.substring(2);
@@ -88,7 +97,7 @@ export class VirtualMachine {
                     let s;
                     if (instruction.result!.startsWith('T ')) {
                         s = this.stack.pop();
-                    }else {
+                    } else {
                         s = this.symbolTable.getSymbol(instruction.result!);
                     }
                     s.value = this.getSymbol(instruction.arg1!);
@@ -99,7 +108,13 @@ export class VirtualMachine {
                 case '-':
                     // 判断是减号还是负号
                     if (instruction.arg2) {
-                        this.stack.push((this.getSymbol(instruction.arg1!) as number) - (this.getSymbol(instruction.arg2!) as number));
+                        const arg1 = this.getSymbol(instruction.arg1!);
+                        const arg2 = this.getSymbol(instruction.arg2);
+
+                        if (instruction.arg1!.startsWith('T ') && instruction.arg2.startsWith('T ') && instruction.arg1! < instruction!.arg2) {
+                            this.stack.push((arg2 as number) - (arg1 as number));
+                        } else this.stack.push((arg1 as number) - (arg2 as number));
+
                     } else {
                         this.stack.push(-(this.getSymbol(instruction.arg1!) as number));
                     }

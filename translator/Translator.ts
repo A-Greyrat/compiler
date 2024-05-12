@@ -46,6 +46,11 @@ const mathOrLogic = (node: SyntaxTreeNode) => {
         node.code = node.children[0].code;
     } else {
         node.code = [...node.children[0].code, ...node.children[2].code].filter(x => x.op !== 'get');
+        if (node.children[0].code.at(-1) === undefined || node.children[2].code.at(-1) === undefined) {
+            console.log(node.children[0]);
+        }
+
+
         node.code.push({
             op: node.children[1].value,
             arg1: node.children[0].code.at(-1)!.result,
@@ -63,7 +68,11 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
     "true": getIdentifierOrImmediate,
     "false": getIdentifierOrImmediate,
     "factor": (node: SyntaxTreeNode) => {
-        node.code = node.children[0].code;
+        if (node.children.length === 1) {
+            node.code = node.children[0].code;
+        } else {
+            node.code = node.children[1].code;
+        }
     },
     "unary": (node: SyntaxTreeNode) => {
         if (node.children.length === 1) {
@@ -147,11 +156,14 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
             });
         } else if (node.children[0].type === 'while') {
             // while(bool)stmt
+            const label1 = loopStack.pop()!;
+            const label2 = loopStack.pop()!;
+
             node.code.push({
                 op: 'label',
                 arg1: null,
                 arg2: null,
-                result: 'L' + labelIndex++
+                result: 'L' + label2
             });
 
             node.code.push(...node.children[2].code);
@@ -160,7 +172,7 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
                 op: 'jfalse',
                 arg1: node.children[2].code.at(-1)!.result,
                 arg2: null,
-                result: 'L' + labelIndex++,
+                result: 'L' + label1,
             });
 
             node.code.push(...node.children[4].code);
@@ -169,14 +181,14 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
                 op: 'jmp',
                 arg1: null,
                 arg2: null,
-                result: 'L' + (labelIndex - 2),
+                result: 'L' + label2,
             });
 
             node.code.push({
                 op: 'label',
                 arg1: null,
                 arg2: null,
-                result: 'L' + (labelIndex - 1),
+                result: 'L' + label1
             });
 
         } else if (node.children[0].type === 'block') {
@@ -184,11 +196,14 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
             node.code = node.children[1].code;
         } else if (node.children[0].type === 'do') {
             // do stmt while(bool);
+            const label1 = loopStack.pop()!;
+            const label2 = loopStack.pop()!;
+
             node.code.push({
                 op: 'label',
                 arg1: null,
                 arg2: null,
-                result: 'L' + labelIndex++
+                result: 'L' + label2
             });
 
             node.code.push(...node.children[1].code);
@@ -199,14 +214,14 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
                 op: 'jtrue',
                 arg1: node.children[4].code.at(-1)!.result,
                 arg2: null,
-                result: 'L' + (labelIndex - 1),
+                result: 'L' + label2,
             });
 
             node.code.push({
                 op: 'label',
                 arg1: null,
                 arg2: null,
-                result: 'L' + labelIndex++
+                result: 'L' + label1
             });
         } else if (node.children[0].type === 'break') {
             // break;
@@ -249,10 +264,6 @@ const translateTable: { [key: string]: (node: SyntaxTreeNode) => void } = {
 };
 
 export class Translator {
-    // 1． 输出语法分析过程；
-    // 2． 输出中间代码，要求三地址代码；
-    // 在自底向上语法分析基础上设计语义规则（语
-
     private syntaxTree: SyntaxTree;
 
     constructor(syntaxTree: SyntaxTree) {
@@ -267,7 +278,8 @@ export class Translator {
         let code = "";
 
         if (node.children[0]?.type === 'while' || node.children[0]?.type === 'do') {
-            loopStack.push(labelIndex + 1);
+            loopStack.push(labelIndex++);
+            loopStack.push(labelIndex++);
         }
 
         for (let i = 0; i < node.children.length; i++) {
@@ -276,10 +288,6 @@ export class Translator {
 
         if (translateTable[node.type]) {
             translateTable[node.type](node);
-        }
-
-        if (node.children[0]?.type === 'while' || node.children[0]?.type === 'do') {
-            loopStack.pop();
         }
 
         return code;

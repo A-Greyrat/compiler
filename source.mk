@@ -1,29 +1,27 @@
 {
     int a;
     int b;
-    int[10] arr;
+    int c;
+    int d;
+    boolean pending;
 
-    a = 10;
-    b = 2;
+    a = 1;
+    b = 1;
+    c = 0;
+    d = 2;
 
-    // Swap a and b
-    a = a + b;
-    b = a - b;
-    a = a - b;
+    // 斐波那契数列的第40项
+    while (d < 40) {
+        c = a + b;
+        a = b;
+        b = c;
 
-    arr[0] = a;
-    arr[1] = b;
-
-    while (a != 0) {
-        a = a - 1;
-        b = b + 1;
+        d = d + 1;
     }
 
-    if (a == 0) {
-        arr[2] = 10000 + a - b;
-        arr[3] = 20000 + a + b;
+    if (c == 102334155) {
+        pending = true;
     } else {
-        arr[4] = 30000 + a - b;
-        arr[5] = 40000 + a + b;
+        pending = false;
     }
 }

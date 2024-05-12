@@ -72,5 +72,5 @@ for (let i = 0; i < syntaxTree.root.code.length; i++) {
 const vm = new VirtualMachine(syntaxTree.root.code, symbolTable);
 
 vm.run();
-
+console.log('运行结果:');
 console.table(Array.from(symbolTable.getSymbols()));

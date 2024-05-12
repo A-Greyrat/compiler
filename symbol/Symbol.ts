@@ -2,7 +2,10 @@ import {SyntaxTree, SyntaxTreeNode} from "../parser";
 
 
 export class Symbol {
-    constructor(public identifier: string, public type: string, public value?: string | number | boolean | any[]) {
+    constructor(public identifier: string,
+                public type: string,
+                public value?: string | number | boolean | any[])
+    {
     }
 }
 
